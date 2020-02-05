@@ -27,7 +27,7 @@ def MergeFileFragments(dirpath, suffix=r"[.]FRAG-[0-9]{5}", debug=False):
 
 
 def main():
-    tmp_path = '/Volumes/Macintosh HDD/code/SmallGroup-analysis/LogBundle/esx-target.hitachi.local-2020-01-08--02.47/commands'
+    tmp_path = '/Volumes/Macintosh HDD/code/SmallGroup-analysis/LogBundle/testfolder/commands'
 
     MergeFileFragments(tmp_path)
 
