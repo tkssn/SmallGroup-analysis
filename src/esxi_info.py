@@ -10,7 +10,7 @@ def SearchInEsxInfo(filepath,keyword):
 
 def HostVersion(filepath):
     targetpath = filepath + '/commands/vmware_-vl.txt'
-    keyword = r'VMware ESXi (6.0.0 build-10719132)'
+    keyword = r'(.*build.*)'
     return SearchInEsxInfo(targetpath,keyword)
 
 def ServerVendor(filepath):
@@ -55,19 +55,40 @@ def MemoryInfo(filepath):
 
 def main():
     tmp_currentpath = '/Volumes/Macintosh HDD/code/SmallGroup-analysis/LogBundle/testfolder'
-    dict = {}
+    dict = {
+        "format": {
+            "title": "ESXi Information",
+            "labels":[
+                {"name":"HostVersion"   ,"type":"text"   },
+                {"name":"ServerVendor"  ,"type":"text"   },
+                {"name":"ServerModel"   ,"type":"text"   },
+                {"name":"CPU Socket"    ,"type":"value"  },
+                {"name":"CPU core"      ,"type":"value"  },
+                {"name":"CPU Family"    ,"type":"value"  },
+                {"name":"CPU model"     ,"type":"value"  },
+                {"name":"Hyperthreading","type":"boolean"},
+                {"name":"Memory Size"   ,"type":"text"  }
+            ],
+            "hasHeader": True,
+            "hasIndex": True
+        },
+        "data":[
+            {
+            "HostVersion"  :HostVersion(tmp_currentpath),
+            "ServerVendor" :ServerVendor(tmp_currentpath),
+            "ServerModel"  :ServerModel(tmp_currentpath),
+            "CPU Socket"   :CPUSocket(tmp_currentpath),
+            "CPU core"     :CPUcore(tmp_currentpath),
+            "CPU Family"   :CPUFamily(tmp_currentpath),
+            "CPU model"    :CPUmodel(tmp_currentpath),
+            "Hyperthrading":CPUHyperthreading(tmp_currentpath),
+            "Memory size"  :MemoryInfo(tmp_currentpath)
+            }
+        ]
+    }
 
-    dict['HostVersion']   = HostVersion(tmp_currentpath)
-    dict['ServerVendor']  = ServerVendor(tmp_currentpath)
-    dict['ServerModel']   = ServerModel(tmp_currentpath)
-    dict['CPU Socket']    = CPUSocket(tmp_currentpath)
-    dict['CPU core']      = CPUcore(tmp_currentpath)
-    dict['CPU Family']    = CPUFamily(tmp_currentpath)
-    dict['CPU model']     = CPUmodel(tmp_currentpath)
-    dict['Hyperthrading'] = CPUHyperthreading(tmp_currentpath)
-    dict['memory size']   = MemoryInfo(tmp_currentpath)
-
-    json_file = open('../json/test.json', 'w')
-    json.dump(dict, json_file)
+    with open('../json/Hardware.json', 'w') as json_file:
+        json.dump(dict, json_file,indent=4)
+#    print(json.dumps(dict, json_file,indent=4))
 
 main()
