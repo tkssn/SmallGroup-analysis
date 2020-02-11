@@ -5,7 +5,7 @@ import gzip
 import shutil
 
 def ExtractVmSupportLog(filepath):
-    tmp_path = '/Volumes/Macintosh HDD/code/SmallGroup-analysis/LogBundle'   
+    tmp_path = '/Volumes/Macintosh HDD/code/SmallGroup-analysis/LogBundle'
     t = tarfile.open(filepath, 'r')
     t.extractall(tmp_path)
 
