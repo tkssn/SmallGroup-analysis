@@ -1,5 +1,8 @@
+import os
 import re
 import json
+import xml.etree.ElementTree as et
+import argparse
 
 def SearchInVmxText(filepath,keyword):
     with open(filepath,'r') as fp:
@@ -18,7 +21,7 @@ def SearchInVmx_AllDeviceNumber(filepath,keyword):
         return list
 
 def Vmx_displayName(filepath):
-    keyword = r'displayName = "([a-zA-Z0-9]*)"'
+    keyword = r'displayName = "(.*)"'
     return SearchInVmxText(filepath,keyword)
 
 def Vmx_virtualHWversion(filepath):
@@ -27,7 +30,10 @@ def Vmx_virtualHWversion(filepath):
 
 def Vmx_vCPU(filepath):
     keyword = r'numvcpus = "([0-9]*)"'
-    return SearchInVmxText(filepath,keyword)
+    Num_vCPU = SearchInVmxText(filepath,keyword)
+    if Num_vCPU == None:
+        Num_vCPU = 1
+    return Num_vCPU
 
 def Vmx_vMem(filepath):
     keyword = r'memSize = "([0-9]*)"'
@@ -37,7 +43,6 @@ def Vmx_vNIC(filepath):
     eth_number = r'(ethernet[0-9]*).present = "TRUE"'
     eth_list = SearchInVmx_AllDeviceNumber(filepath,eth_number) # <---- need vNIC number test
 
-    dict = {}
     list = []
 
     for item in eth_list:
@@ -47,89 +52,106 @@ def Vmx_vNIC(filepath):
         element = item + r'.networkName = "(.*)"'
         PortgroupName = SearchInVmxText(filepath,element)
 
-        dict[item + r'.virtualDev']  = Device
-        dict[item + r'.networkName'] = PortgroupName
+        list.append({"Content":item + r'.virtualDev',"Detail":Device})
+        list.append({"Content":item + r'.networkName',"Detail":PortgroupName})
 
-        list.append({"name":item + r'.virtualDev',"type":"text"})
-        list.append({"name":item + r'.networkName',"type":"text"})
-
-    return(dict,list)
+    return(list)
 
 def Vmx_vDisk(filepath):
     vDisk_number = r'(scsi[0-9]*:[0-9]*).present = "TRUE"'
     vDisk_list = SearchInVmx_AllDeviceNumber(filepath,vDisk_number) # <---- need scsi number test
 
-    dict = {}
     list = []
 
     for item in vDisk_list:
         element = item + r'.fileName = "(.*)"'
         vDiskName = SearchInVmxText(filepath,element)
 
-        dict[item + r'.fileName']  = vDiskName
+        list.append({"Content":item + r'.fileName',"Detail":vDiskName})
 
-        list.append({"name":item + r'.fileName',"type":"text"})
-
-    return(dict,list)
+    return(list)
 
 def Vmx_vBus(filepath):
     vBus_number = r'(scsi[0-9]*).present = "TRUE"'
     vBus_list = SearchInVmx_AllDeviceNumber(filepath,vBus_number)
 
-    dict = {}
     list = []
 
     for item in vBus_list:
         element = item + r'.virtualDev = "(.*)"'
         vBusName = SearchInVmxText(filepath,element)
 
-        dict[item + r'.virtualDev']  = vBusName
+        list.append({"Content":item + r'.virtualDev',"Detail":vBusName})
 
-        list.append({"name":item + r'.virtualDev',"type":"text"})
+    return(list)
 
-    return(dict,list)
+def ShowVMList(path):
+    target_path = os.path.join(path,"etc","vmware","hostd","vmInventory.xml")
+    tree = et.parse(target_path)
+    root = tree.getroot()
+    list = []
+    for name in root.iter('vmxCfgPath'):
+        list.append(name.text)
+    
+    return(list)
 
 def main():
-    tmp_filepath = '/Volumes/Macintosh HDD/code/SmallGroup-analysis/vmx/testVM.vmx'
+    vmsupport_filepath = '/Volumes/Macintosh HDD/code/SmallGroup-analysis/LogBundle/test-vm_support1'
+    """
+    parser = argparse.ArgumentParser(prog='vm.py',usage='Summarize VM Information',description='description',epilog='end',add_help=True)
+    parser.add_argument('-f', '--file',help='input the vm-support directory',type=str,required=True)
+    args = parser.parse_args()
+    vmsupport_filepath = args.file
+    """
+    VMXpaths = ShowVMList(vmsupport_filepath)
+    for VMXpath in VMXpaths:
+        vmsupport_VMXpath = vmsupport_filepath + VMXpath
+        list = []
+        list = [
+            {
+                "Content":"VM name",
+                "Detail":Vmx_displayName(vmsupport_VMXpath)
+            },
+            {
+                "Content":"VM Hardware version",
+                "Detail":Vmx_virtualHWversion(vmsupport_VMXpath)
+            },
+            {
+                "Content":"vCPU",
+                "Detail":Vmx_vCPU(vmsupport_VMXpath)
+            },
+            {
+                "Content":"vMem",
+                "Detail":Vmx_vMem(vmsupport_VMXpath)
+            }
+        ]
 
-    dict = {}
-    dict["VM name"] = Vmx_displayName(tmp_filepath)
-    dict["HW version"] = Vmx_virtualHWversion(tmp_filepath)
-    dict["vCPU"] = Vmx_vCPU(tmp_filepath)
-    dict["vMem"] = Vmx_vMem(tmp_filepath)
+        vNICList = Vmx_vNIC(vmsupport_VMXpath)
+        list.extend(vNICList)
 
-    dict1,list1 = Vmx_vDisk(tmp_filepath)
-    dict2,list2 = Vmx_vNIC(tmp_filepath)
-    dict3,list3 = Vmx_vBus(tmp_filepath)
+        vDiskList = Vmx_vDisk(vmsupport_VMXpath)
+        list.extend(vDiskList)
 
-    dict.update(dict1)
-    dict.update(dict2)
-    dict.update(dict3)
-    dict_data = {"data":[dict]}
+        vBusList = Vmx_vBus(vmsupport_VMXpath)
+        list.extend(vBusList)
 
-    list = []
-    list.extend(list1)
-    list.extend(list2)
-    list.extend(list3)
-    list.append({"name":"VM name"    ,"type":"text" })
-    list.append({"name":"HW version" ,"type":"value"})
-    list.append({"name":"vCPU"       ,"type":"value"})
-    list.append({"name":"vMem"       ,"type":"text" })
-
-    dict = {}
-    dict = {
-        "format": {
-            "title": "VM Information",
-            "labels":list,
-        "hasHeader": True,
-        "hasIndex": True
+        dict = {}
+        dict = {
+            "format":{
+                "title": "VM Information",
+                "labels":[
+                    {"name":"Content" ,"type":"text"},
+                    {"name":"Detail"  ,"type":"text"}
+                ],
+                "hasHeader": True,
+                "hasIndex": True
+            },
+            "data":list
         }
-    }
 
-    dict.update(dict_data)
-
-    json_file = open('../json/VM.json', 'w')
-    json.dump(dict, json_file,indent=4)
-    print(json.dumps(dict, json_file,indent=4))
+        VMXname = os.path.splitext(os.path.basename(vmsupport_VMXpath))[0]
+        json_file = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),'json','VM',VMXname + '.json'), 'w')
+        json.dump(dict, json_file,indent=4)
+        #print(json.dumps(dict, json_file,indent=4))
 
 main()
