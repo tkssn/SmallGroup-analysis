@@ -484,22 +484,16 @@ def SummarizeEsxInfo(path):
         errorLog(e)
 
 def main():
-    vmsupport_path = "/Volumes/Macintosh HDD/code/SmallGroup-analysis/LogBundle/testfolder"
-    """
     parser = argparse.ArgumentParser(prog='SummarizeEsxInfo.py',usage='Summarize ESXi Information',description='description',epilog='end',add_help=True)
     parser.add_argument('-f', '--file',help='input the vm-support directory',type=str,required=True)
     args = parser.parse_args()
     vmsupport_path = args.file
-    """
 
-    if os.path.isdir(vmsupport_path) == True:
-        SummarizeDisk(vmsupport_path)
-        SummarizeDatastore(vmsupport_path)
-        SummarizeHardware(vmsupport_path)
-        SummarizeVirtualNetwork(vmsupport_path)
-        SummarizeEsxInfo(vmsupport_path)
-        SummarizeStorageAdapter(vmsupport_path)
-    else:
-        errorLog("vm-support doesn't exist")
+    SummarizeDisk(vmsupport_path)
+    SummarizeDatastore(vmsupport_path)
+    SummarizeHardware(vmsupport_path)
+    SummarizeVirtualNetwork(vmsupport_path)
+    SummarizeEsxInfo(vmsupport_path)
+    SummarizeStorageAdapter(vmsupport_path)
 
 main()

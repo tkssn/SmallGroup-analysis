@@ -5,6 +5,8 @@ import gzip
 import shutil
 import datetime
 import argparse
+import json
+import xml.etree.ElementTree as et
 
 SourceFileDirname = os.path.dirname(os.path.abspath(__file__))
 now = datetime.datetime.now()
@@ -165,24 +167,125 @@ def ChangeFileMode(dirpath):
     except Exception as e:
         errorLog(e)
 
+def GetvmxList(path):
+    target_path = os.path.join(path,'etc','vmware','hostd','vmInventory.xml')
+    tree = et.parse(target_path)
+    root = tree.getroot()
+ 
+    vmxPathList = []
+    VMnameList = []
+
+    for vmxPath in root.iter('vmxCfgPath'):
+        vmxPathList.append(vmxPath.text)
+        VMnameList.append(os.path.splitext(os.path.basename(vmxPath.text))[0])
+
+    return(vmxPathList,VMnameList)
+
+def createVft(extractDirpath,extractVmsupportName):
+    vmxTuple = GetvmxList(os.path.join(extractDirpath,extractVmsupportName))
+    vmxPaths = vmxTuple[0]
+    VMnames = vmxTuple[1]
+
+    vftInventoryList = []
+    for VMname, vmxPath in zip(VMnames, vmxPaths):
+        vftInventoryList.append({
+            "name":VMname,
+            "file":True,
+            "type":"txt",
+            "link":os.path.join(extractDirpath,extractVmsupportName) + vmxPath
+        })
+
+    dict = {
+        "name" :"Main Log",
+        "file" :False,
+        "children":[
+            {
+                "name":"vmkernel.log",
+                "file":True,
+                "type":"txt",
+                "link":os.path.join(extractDirpath,extractVmsupportName,'var','run','log','vmkernel.log')
+            },
+            {
+                "name":"hostd.log",
+                "file":True,
+                "type":"txt",
+                "link":os.path.join(extractDirpath,extractVmsupportName,'var','run','log','hostd.log')
+            },
+            {
+                "name":"fdm.log",
+                "file":True,
+                "type":"txt",
+                "link":os.path.join(extractDirpath,extractVmsupportName,'var','run','log','fdm.log')
+            },
+            {
+                "name":"vobd.log",
+                "file":True,
+                "type":"txt",
+                "link":os.path.join(extractDirpath,extractVmsupportName,'var','run','log','vobd.log')
+            },
+            {
+                "name":"vmksummary.log",
+                "file":True,
+                "type":"txt",
+                "link":os.path.join(extractDirpath,extractVmsupportName,'var','run','log','vmksummary.log')
+            },
+            {
+                "name":"vmkwarning.log",
+                "file":True,
+                "type":"txt",
+                "link":os.path.join(extractDirpath,extractVmsupportName,'var','run','log','vmkwarning.log')
+            },
+            {
+                "name":"vpxa.log",
+                "file":True,
+                "type":"txt",
+                "link":os.path.join(extractDirpath,extractVmsupportName,'var','run','log','vpxa.log')
+            },
+            {
+                "name":"shell.log",
+                "file":True,
+                "type":"txt",
+                "link":os.path.join(extractDirpath,extractVmsupportName,'var','run','log','shell.log')
+            },
+            {
+                "name":"Inventory",
+                "file":False,
+                "children":vftInventoryList
+            }
+        ]
+    }
+
+    try:
+        vftFileName = os.path.basename(extractDirpath) + ".vft"
+        vftPath = os.path.dirname(extractDirpath)
+        with open(os.path.join(vftPath,vftFileName), 'w') as vft_file:
+            json.dump(dict, vft_file,indent=4)
+    except Exception as e:
+        errorLog(e)
+
+
 def main():
     parser = argparse.ArgumentParser(prog='extractLogBundle.py',usage='Extract the log bundle',description='description',epilog='end',add_help=True)
     parser.add_argument('-f', '--file',help='input the target directory',type=str,required=True)
     args = parser.parse_args()
-    targetLogBundlePath =  args.file
+    targetLogBundlePath = args.file
 
     extractContents = ExtractVmSupportLog(targetLogBundlePath)
+    extractDirpath = extractContents[0]
+    extractVmsupportName = extractContents[1]
 
-    targetMergeFileFragmentsDir = os.path.join(extractContents[0],extractContents[1],'commands')
+    targetMergeFileFragmentsDir = os.path.join(extractDirpath,extractVmsupportName,'commands')
     MergeFileFragments(targetMergeFileFragmentsDir)
-    targetCleanFileDir = os.path.join(extractContents[0],extractContents[1],'commands','esxcfg-info_-a--F-xml.txt')
+    targetCleanFileDir = os.path.join(extractDirpath,extractVmsupportName,'commands','esxcfg-info_-a--F-xml.txt')
     CleanFile(targetCleanFileDir, r"^ResourceGroup:.*")
 
-    targetMergeLogDir = os.path.join(extractContents[0],extractContents[1],'var')
+    targetMergeLogDir = os.path.join(extractDirpath,extractVmsupportName,'var')
     MergeLogFiles(targetMergeLogDir)
 
-    MergeVmwarelogFiles(os.path.join(extractContents[0],extractContents[1],'vmfs','volumes'))
+    MergeVmwarelogFiles(os.path.join(extractDirpath,extractVmsupportName,'vmfs','volumes'))
 
-    ChangeFileMode(extractContents[0])
+    ChangeFileMode(extractDirpath)
+
+    createVft(extractDirpath,extractVmsupportName)
 
 main()
