@@ -28,15 +28,16 @@ def ExtractVmSupportLog(filepath):
     for curDir, dirs, files in os.walk(extractDirpath):
         for filename in files:
             if filename.endswith(".gz"):
-                InputFile = os.path.join(curDir,filename)
-                OutputFile = os.path.join(curDir,os.path.splitext(filename)[0])
-                try:
-                    with gzip.open(InputFile,'rb') as f_in:
-                        with open(OutputFile, 'wb') as f_out:
-                            shutil.copyfileobj(f_in,f_out)
-                    os.remove(InputFile)
-                except Exception as e:
-                    errorLog(e)
+                if not filename.endswith("tar.gz"):
+                    InputFile = os.path.join(curDir,filename)
+                    OutputFile = os.path.join(curDir,os.path.splitext(filename)[0])
+                    try:
+                        with gzip.open(InputFile,'rb') as f_in:
+                            with open(OutputFile, 'wb') as f_out:
+                                shutil.copyfileobj(f_in,f_out)
+                        os.remove(InputFile)
+                    except Exception as e:
+                        errorLog(e)
 
     extractVmsupportName = os.listdir(extractDirpath)[0]
 
@@ -158,6 +159,30 @@ def MergeVmwarelogFiles(dirpath):
             errorLog(e)
 
         MergeVmwarelogContents = []
+
+def MergeCoreDumpFiles(dirpath):
+    if os.path.isdir(dirpath) == True:
+        zdumpNumbers = []
+        zdumpfiles = os.listdir(dirpath)
+        zdumpfiles.sort()
+
+        for zdumpfile in zdumpfiles:
+            matchword = re.match(r'vmkernel-zdump.([0-9]+).FRAG-[0-9]+',zdumpfile)
+            if matchword != None:
+                zdumpNumbers.append(matchword.group(1))
+        zdumpNumbers = list(set(zdumpNumbers))
+
+        if zdumpNumbers:
+            try:
+                for zdumpNumber in zdumpNumbers:
+                    with open(os.path.join(dirpath,'vmkernel-zdump.' + zdumpNumber),'ab') as saveDump:
+                        for zdumpfile in zdumpfiles:
+                            if zdumpfile.startswith('vmkernel-zdump.' + zdumpNumber + '.FRAG-'):
+                                with open(os.path.join(dirpath,zdumpfile),'rb') as readDump:
+                                    saveDump.write(readDump.read())
+                                os.remove(os.path.join(dirpath,zdumpfile))
+            except Exception as e:
+                errorLog(e)
 
 def ChangeFileMode(dirpath):
     try:
@@ -283,6 +308,8 @@ def main():
     MergeLogFiles(targetMergeLogDir)
 
     MergeVmwarelogFiles(os.path.join(extractDirpath,extractVmsupportName,'vmfs','volumes'))
+
+    MergeCoreDumpFiles(os.path.join(extractDirpath,extractVmsupportName,'var','core'))
 
     ChangeFileMode(extractDirpath)
 
